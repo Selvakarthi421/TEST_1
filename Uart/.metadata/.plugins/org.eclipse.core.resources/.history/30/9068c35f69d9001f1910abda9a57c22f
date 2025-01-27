@@ -1,0 +1,24 @@
+/*
+ * urt.h
+ *
+ *  Created on: Jan 23, 2025
+ *      Author: ADMIN
+ */
+
+#ifndef INC_URT_H_
+#define INC_URT_H_
+
+
+#ifdef __cplusplus
+extern UART_HandleTypeDef huart3;
+ extern "C" {
+#endif
+
+
+ void uart(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* INC_URT_H_ */

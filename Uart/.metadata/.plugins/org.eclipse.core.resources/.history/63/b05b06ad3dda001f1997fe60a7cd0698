@@ -1,0 +1,92 @@
+#include "main.h"
+#include "uart_header.h"
+
+
+uint8_t TX_buffer[20] = "HELLO_";
+uint8_t n[] = "\r\n";
+uint8_t rx[2];
+
+// Timer handle
+TIM_HandleTypeDef htim2;
+
+// Function prototypes
+void MX_TIM2_Init(void);
+
+int main(void)
+{
+    // Initialize HAL Library
+    HAL_Init();
+
+    // Configure the system clock
+    SystemClock_Config();
+
+    // Initialize peripherals
+    MX_GPIO_Init();
+    MX_USART3_UART_Init();
+    MX_TIM2_Init();  // Initialize Timer 2
+
+    // Start Timer 2 with interrupt
+    HAL_TIM_Base_Start_IT(&htim2);
+
+    while (1)
+    {
+        // UART Transmission
+        HAL_UART_Transmit(&huart3, TX_buffer, sizeof(TX_buffer), 500);
+        HAL_UART_Transmit(&huart3, n, sizeof(n), 500);
+
+        // Delay 1 second using Timer interrupt (not HAL_Delay)
+        // The actual delay is handled in the Timer interrupt callback
+        HAL_Delay(10);
+
+        // UART Receive check
+        if (HAL_UART_Receive(&huart3, rx, sizeof(rx), 10) == HAL_OK)
+        {
+            if (rx[0] == 'H' && rx[1] == 'I')
+            {
+                uint8_t message[] = "Received HI Exiting...\r\n";
+                HAL_UART_Transmit(&huart3, message, sizeof(message), 5);
+                break;
+            }
+        }
+    }
+
+    while (1)
+    {
+        // Infinite loop
+    }
+}
+
+void MX_TIM2_Init(void)
+{
+    // Timer configuration for 1-second delay (1Hz)
+    htim2.Instance = TIM2;
+    htim2.Init.Prescaler = 7999;  // Prescaler for 10kHz timer clock (80MHz / 8000 = 10kHz)
+    htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim2.Init.Period = 999;  // Period for 1 second delay (10kHz / 1000 = 1Hz)
+    htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+
+    if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    // Enable the TIM2 global interrupt in NVIC
+    HAL_NVIC_EnableIRQ(TIM2_IRQn);
+}
+
+// Timer interrupt handler
+void TIM2_IRQHandler(void)
+{
+    // Check if update interrupt flag is set
+    if (__HAL_TIM_GET_FLAG(&htim2, TIM_FLAG_UPDATE))
+    {
+        __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_UPDATE);  // Clear the update flag
+
+        // Your code to execute after each 1 second timer interrupt
+        HAL_UART_Transmit(&huart3, TX_buffer, sizeof(TX_buffer), 500);  // Send "HELLO_"
+        HAL_UART_Transmit(&huart3, n, sizeof(n), 500);  // Send new line
+    }
+}
+
+// Other functions: SystemClock_Config, MX_USART3_UART_Init, MX_GPIO_Init, etc.

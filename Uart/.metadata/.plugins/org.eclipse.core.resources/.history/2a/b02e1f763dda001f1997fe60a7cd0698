@@ -1,0 +1,182 @@
+#include "main.h"
+#include "uart_header.h"
+#include "stm32l4xx_hal_tim.h"  // Include the timer HAL header
+
+uint8_t TX_buffer[20] = "HELLO_";
+uint8_t n[] = "\r\n";
+uint8_t rx[2];
+
+UART_HandleTypeDef huart3;
+TIM_HandleTypeDef htim2;  // Declare the timer handle
+
+volatile uint8_t uartFlag = 0;  // Flag to indicate 1-second timer event
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+void MX_GPIO_Init(void);
+void MX_USART3_UART_Init(void);
+void MX_TIM2_Init(void);
+void TIM2_IRQHandler(void);  // Timer interrupt handler
+
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  HAL_Init();  // Initialize the HAL library
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART3_UART_Init();
+  MX_TIM2_Init();  // Initialize Timer 2
+
+  /* Start Timer */
+  HAL_TIM_Base_Start_IT(&htim2);  // Start Timer 2 with interrupt
+
+  /* Infinite loop */
+  while (1)
+  {
+    if (uartFlag)  // If 1-second timer interrupt flag is set
+    {
+      uartFlag = 0;  // Reset the flag
+
+      HAL_UART_Transmit(&huart3, TX_buffer, sizeof(TX_buffer), 500);
+      HAL_UART_Transmit(&huart3, n, sizeof(n), 500);
+
+      if (HAL_UART_Receive(&huart3, rx, sizeof(rx), 10) == HAL_OK) {
+        if (rx[0] == 'H' && rx[1] == 'I') {
+          uint8_t message[] = "Received HI Exiting...\r\n";
+          HAL_UART_Transmit(&huart3, message, sizeof(message), 5);
+          break;
+        }
+      }
+    }
+  }
+
+  while (1) {}
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  // Configuration code remains unchanged
+}
+
+/**
+  * @brief Timer 2 Initialization Function
+  * @param None
+  * @retval None
+  */
+void MX_TIM2_Init(void)
+{
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 7999;  // Prescaler for 10kHz timer clock (80MHz / 8000 = 10kHz)
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 999;  // Period for 1 second delay (10kHz / 1000 = 1Hz)
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* Enable the Timer Interrupt */
+  HAL_NVIC_EnableIRQ(TIM2_IRQn);  // Enable interrupt for TIM2
+}
+
+/**
+  * @brief Timer 2 Interrupt Handler
+  * @retval None
+  */
+void TIM2_IRQHandler(void)
+{
+  if (__HAL_TIM_GET_FLAG(&htim2, TIM_FLAG_UPDATE))
+  {
+    __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_UPDATE);  // Clear the update flag
+
+    // Set the flag to indicate that 1 second has passed
+    uartFlag = 1;
+  }
+}
+
+/**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+void MX_USART3_UART_Init(void)
+{
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 9600;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  __HAL_RCC_GPIOA_CLK_ENABLE();  // Enable GPIOA clock
+
+  /* Configure GPIO pin : PA5 (LED Pin) */
+  GPIO_InitStruct.Pin = GPIO_PIN_5;  // Pin 5 (LED pin)
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;  // Push-pull mode
+  GPIO_InitStruct.Pull = GPIO_NOPULL;  // No pull-up or pull-down
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;  // Low speed
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+}
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  __disable_irq();
+  while (1)
+  {
+    // Stay here in case of error
+  }
+}
+
+#ifdef  USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  // User can add his own implementation to report the file name and line number
+}
+#endif /* USE_FULL_ASSERT */
