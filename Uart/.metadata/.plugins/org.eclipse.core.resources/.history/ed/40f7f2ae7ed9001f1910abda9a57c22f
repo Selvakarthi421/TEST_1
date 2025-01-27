@@ -1,0 +1,16 @@
+/*
+ * Timer.c
+ *
+ *  Created on: Jan 23, 2025
+ *      Author: ADMIN
+ */
+#include "Timer_header.h"
+#include "stm32l4xx_hal.h"
+HAL_TIM_base_Start_IT(&htim2);
+void timer(void){
+	uint32_t count=0;
+	void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypedef *htim){
+		count++;
+	}
+}
+
